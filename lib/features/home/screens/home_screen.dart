@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/dummy_data.dart';
 import '../../../core/theme.dart';
-import '../data/home_repository.dart';
-import '../state/home_controller.dart';
+import '../di/home_dependencies.dart';
+import '../domain/entities/home_category.dart';
+import '../presentation/viewmodels/home_view_model.dart';
 import '../widgets/product_card.dart';
 import '../widgets/category_chip.dart';
 
@@ -15,18 +16,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final HomeController _controller;
+  late final HomeViewModel _viewModel;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _controller = HomeController(HomeRepository())..load();
+    _viewModel = createHomeViewModel()..load();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _viewModel.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -37,9 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: _controller,
+          animation: _viewModel,
           builder: (context, _) => RefreshIndicator(
-            onRefresh: _controller.load,
+            onRefresh: _viewModel.load,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -106,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: TextField(
                             controller: _searchController,
-                            onChanged: _controller.updateSearch,
+                            onChanged: _viewModel.updateSearch,
                             decoration: InputDecoration(
                               hintText: 'Search clothes...',
                               hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -135,20 +136,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 44,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            itemCount: _controller.categories.length + 1,
+                            itemCount: _viewModel.categories.length + 1,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(width: 12),
                             itemBuilder: (context, index) {
                               final category = index == 0
                                   ? const HomeCategory(slug: 'all', name: 'All')
-                                  : _controller.categories[index - 1];
+                                  : _viewModel.categories[index - 1];
                               return CategoryChip(
                                 label: category.name,
                                 isSelected:
-                                    _controller.selectedCategory ==
+                                    _viewModel.selectedCategory ==
                                     category.slug,
                                 onTap: () =>
-                                    _controller.selectCategory(category.slug),
+                                    _viewModel.selectCategory(category.slug),
                               );
                             },
                           ),
@@ -157,13 +158,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                if (_controller.isLoading && _controller.products.isEmpty)
+                if (_viewModel.isLoading && _viewModel.products.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(child: CircularProgressIndicator()),
                   )
-                else if (_controller.errorMessage != null &&
-                    _controller.products.isEmpty)
+                else if (_viewModel.errorMessage != null &&
+                    _viewModel.products.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -173,12 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              _controller.errorMessage!,
+                              _viewModel.errorMessage!,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
-                              onPressed: _controller.load,
+                              onPressed: _viewModel.load,
                               icon: const Icon(Icons.refresh),
                               label: const Text('Try again'),
                             ),
@@ -187,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   )
-                else if (_controller.visibleProducts.isEmpty)
+                else if (_viewModel.visibleProducts.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(child: Text('No products found.')),
@@ -205,9 +206,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         return ProductCard(
-                          product: _controller.visibleProducts[index],
+                          product: _viewModel.visibleProducts[index],
                         );
-                      }, childCount: _controller.visibleProducts.length),
+                      }, childCount: _viewModel.visibleProducts.length),
                     ),
                   ),
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),

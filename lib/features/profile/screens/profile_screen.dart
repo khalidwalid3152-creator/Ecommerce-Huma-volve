@@ -1,16 +1,37 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/dummy_data.dart';
 import '../../../core/theme.dart';
 import '../widgets/profile_menu_item.dart';
 import '../../auth/login/screens/login_screen.dart';
-import '../../auth/data/auth_service.dart';
+import '../../auth/di/auth_dependencies.dart';
+import '../../auth/presentation/viewmodels/auth_view_model.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late final AuthViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = createAuthViewModel();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = AuthService.instance.currentUser;
+    final user = _viewModel.currentUser;
     final name = user?.name.isNotEmpty == true ? user!.name : dummyUser.name;
     final email = user?.email.isNotEmpty == true
         ? user!.email
@@ -100,13 +121,15 @@ class ProfileScreen extends StatelessWidget {
                     title: 'Logout',
                     isDestructive: true,
                     onTap: () {
-                      AuthService.instance.logout();
+                      _viewModel.logout();
                       Navigator.pushReplacement(
                         context,
                         PageRouteBuilder(
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const LoginScreen(),
+                          pageBuilder: (
+                            context,
+                            animation,
+                            secondaryAnimation,
+                          ) => const LoginScreen(),
                           transitionsBuilder:
                               (context, animation, secondaryAnimation, child) {
                                 return FadeTransition(
