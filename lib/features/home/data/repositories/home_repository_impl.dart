@@ -11,9 +11,9 @@ class HomeRepositoryImpl implements HomeRepository {
   final HomeRemoteDataSource _remoteDataSource;
 
   @override
-  Future<HomeData> loadHome() async {
+  Future<HomeData> loadHome({required int skip, required int limit}) async {
     try {
-      return await _remoteDataSource.loadHome();
+      return await _remoteDataSource.loadHome(skip: skip, limit: limit);
     } on DioException catch (error) {
       throw HomeFailure(
         error.response == null

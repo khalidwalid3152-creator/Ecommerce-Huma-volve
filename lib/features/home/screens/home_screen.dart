@@ -18,17 +18,29 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeViewModel _viewModel;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _viewModel = createHomeViewModel()..load();
+    _scrollController.addListener(_loadMoreWhenNearEnd);
+  }
+
+  void _loadMoreWhenNearEnd() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.extentAfter < 300) {
+      _viewModel.loadMore();
+    }
   }
 
   @override
   void dispose() {
     _viewModel.dispose();
     _searchController.dispose();
+    _scrollController
+      ..removeListener(_loadMoreWhenNearEnd)
+      ..dispose();
     super.dispose();
   }
 
@@ -42,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, _) => RefreshIndicator(
             onRefresh: _viewModel.load,
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
@@ -189,9 +202,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 else if (_viewModel.visibleProducts.isEmpty)
-                  const SliverFillRemaining(
+                  SliverFillRemaining(
                     hasScrollBody: false,
-                    child: Center(child: Text('No products found.')),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('No products found.'),
+                          if (_viewModel.isLoadingMore)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(),
+                            )
+                          else if (_viewModel.hasMore)
+                            TextButton(
+                              onPressed: _viewModel.loadMore,
+                              child: Text(
+                                _viewModel.loadMoreError == null
+                                    ? 'Load more products'
+                                    : 'Retry loading products',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   )
                 else
                   SliverPadding(
@@ -209,6 +243,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           product: _viewModel.visibleProducts[index],
                         );
                       }, childCount: _viewModel.visibleProducts.length),
+                    ),
+                  ),
+                if (_viewModel.products.isNotEmpty &&
+                    (_viewModel.isLoadingMore ||
+                        _viewModel.loadMoreError != null ||
+                        _viewModel.hasMore))
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: _viewModel.isLoadingMore
+                            ? const CircularProgressIndicator()
+                            : _viewModel.loadMoreError != null
+                            ? TextButton.icon(
+                                onPressed: _viewModel.loadMore,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text(
+                                  'Could not load more. Tap to retry.',
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),

@@ -6,5 +6,7 @@ class LoadHome {
 
   final HomeRepository _repository;
 
-  Future<HomeData> call() => _repository.loadHome();
+  Future<HomeData> call({required int skip, required int limit}) {
+    return _repository.loadHome(skip: skip, limit: limit);
+  }
 }

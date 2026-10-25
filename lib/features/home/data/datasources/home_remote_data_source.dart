@@ -10,18 +10,21 @@ class HomeRemoteDataSource {
 
   final Dio _dio;
 
-  Future<HomeData> loadHome() async {
+  Future<HomeData> loadHome({required int skip, required int limit}) async {
     final productResponse = await _dio.get<Map<String, dynamic>>(
       '/products',
-      queryParameters: {'limit': 100},
+      queryParameters: {'limit': limit, 'skip': skip},
     );
-    final categoryResponse = await _dio.get<List<dynamic>>(
-      '/products/category-list',
-    );
+    final categoryResponse = skip == 0
+        ? await _dio.get<List<dynamic>>('/products/category-list')
+        : null;
 
     final productData = productResponse.data?['products'];
-    final categoryData = categoryResponse.data;
-    if (productData is! List || categoryData == null) {
+    final totalData = productResponse.data?['total'];
+    final categoryData = categoryResponse?.data;
+    if (productData is! List ||
+        totalData is! num ||
+        (skip == 0 && categoryData == null)) {
       throw const FormatException('The product service returned invalid data.');
     }
 
@@ -30,10 +33,15 @@ class HomeRemoteDataSource {
           .whereType<Map<String, dynamic>>()
           .map(_productFromJson)
           .toList(growable: false),
-      categories: categoryData
-          .whereType<String>()
-          .map((slug) => HomeCategory(slug: slug, name: _categoryName(slug)))
-          .toList(growable: false),
+      categories:
+          categoryData
+              ?.whereType<String>()
+              .map(
+                (slug) => HomeCategory(slug: slug, name: _categoryName(slug)),
+              )
+              .toList(growable: false) ??
+          const [],
+      total: totalData.toInt(),
     );
   }
 
