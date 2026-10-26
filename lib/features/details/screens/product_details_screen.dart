@@ -1,32 +1,132 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../../../core/dummy_data.dart';
+import '../../../core/routing/product_deep_link.dart';
 import '../../../core/theme.dart';
+import '../../../core/widgets/primary_button.dart';
+import '../../home/domain/errors/home_failure.dart';
+import '../../home/domain/entities/home_product.dart';
+import '../../home/domain/use_cases/load_product.dart';
 import '../widgets/color_selector.dart';
 import '../widgets/size_selector.dart';
-import '../../../core/widgets/primary_button.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
-  final Product product;
+  const ProductDetailsScreen({super.key, required this.product})
+    : productId = null,
+      loadProduct = null;
 
-  const ProductDetailsScreen({super.key, required this.product});
+  const ProductDetailsScreen.fromId({
+    super.key,
+    required this.productId,
+    required this.loadProduct,
+  }) : product = null,
+       assert(productId != null && loadProduct != null);
+
+  final Product? product;
+  final String? productId;
+  final LoadProduct? loadProduct;
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
 }
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
-  late Color _selectedColor;
-  late String _selectedSize;
+  Color? _selectedColor;
+  String? _selectedSize;
+  Product? _product;
+  late Future<Product>? _productFuture;
 
   @override
   void initState() {
     super.initState();
-    _selectedColor = widget.product.colors.first;
-    _selectedSize = widget.product.sizes.first;
+    _product = widget.product;
+    _productFuture = _product == null ? _fetchProduct() : null;
+  }
+
+  Future<Product> _fetchProduct() async {
+    final homeProduct = await widget.loadProduct!(widget.productId!);
+    return _toUiProduct(homeProduct);
+  }
+
+  Product _toUiProduct(HomeProduct product) {
+    final category = product.categorySlug.toLowerCase();
+    final sizes =
+        category.contains('clothing') ||
+            category.contains('shirt') ||
+            category.contains('dress')
+        ? ['S', 'M', 'L', 'XL']
+        : ['One Size'];
+
+    return Product(
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      colors: const [Colors.black, Colors.white, Colors.grey],
+      sizes: sizes,
+      categorySlug: product.categorySlug,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final product = _product;
+    if (product != null) return _buildDetails(context, product);
+
+    return FutureBuilder<Product>(
+      future: _productFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          _product = snapshot.data;
+          return _buildDetails(context, snapshot.data!);
+        }
+        if (snapshot.hasError) {
+          final error = snapshot.error;
+          return Scaffold(
+            backgroundColor: AppTheme.background,
+            appBar: AppBar(
+              backgroundColor: AppTheme.background,
+              leading: const BackButton(),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      error is HomeFailure
+                          ? error.message
+                          : 'This product could not be loaded.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _productFuture = _fetchProduct();
+                        });
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return const Scaffold(
+          backgroundColor: AppTheme.background,
+          body: Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetails(BuildContext context, Product product) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: CustomScrollView(
@@ -48,25 +148,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
             actions: [
               IconButton(
+                tooltip: 'Copy product link',
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.favorite_border, size: 18),
+                  child: const Icon(Icons.link, size: 18),
                 ),
-                onPressed: () {},
+                onPressed: () => _copyProductLink(context, product),
               ),
               const SizedBox(width: 8),
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: Hero(
-                tag: 'product-${widget.product.id}',
-                child: Image.network(
-                  widget.product.imageUrl,
-                  fit: BoxFit.cover,
-                ),
+                tag: 'product-${product.id}',
+                child: Image.network(product.imageUrl, fit: BoxFit.cover),
               ),
             ),
           ),
@@ -88,49 +186,41 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.product.name,
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontSize: 28,
-                              height: 1.2,
-                            ),
+                            product.name,
+                            style: Theme.of(context).textTheme.headlineLarge
+                                ?.copyWith(fontSize: 28, height: 1.2),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Text(
-                          '\$${widget.product.price.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppTheme.primary,
-                            fontSize: 24,
-                          ),
+                          '\$${product.price.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(color: AppTheme.primary, fontSize: 24),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
                     Text(
                       'Description',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      widget.product.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        height: 1.6,
-                        fontSize: 16,
-                      ),
+                      product.description,
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(height: 1.6, fontSize: 16),
                     ),
                     const SizedBox(height: 24),
                     Text(
                       'Select Color',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     ColorSelector(
-                      colors: widget.product.colors,
-                      selectedColor: _selectedColor,
+                      colors: product.colors,
+                      selectedColor: _selectedColor ?? product.colors.first,
                       onColorSelected: (color) {
                         setState(() {
                           _selectedColor = color;
@@ -140,14 +230,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     const SizedBox(height: 24),
                     Text(
                       'Select Size',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     SizeSelector(
-                      sizes: widget.product.sizes,
-                      selectedSize: _selectedSize,
+                      sizes: product.sizes,
+                      selectedSize: _selectedSize ?? product.sizes.first,
                       onSizeSelected: (size) {
                         setState(() {
                           _selectedSize = size;
@@ -160,7 +249,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('${widget.product.name} added to cart'),
+                            content: Text('${product.name} added to cart'),
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -177,6 +266,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _copyProductLink(BuildContext context, Product product) async {
+    final link = ProductDeepLink.forProduct(product.id);
+    await Clipboard.setData(ClipboardData(text: link));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Product link copied'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

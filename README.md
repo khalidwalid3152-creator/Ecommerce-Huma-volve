@@ -15,3 +15,11 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Product deep links
+
+Product details can be opened with links such as
+`humavolve://app/products/1`.
+On Android, tapping a product's link icon copies this link to the clipboard.
+The app also accepts the `/products/<id>` route when a product URL is opened
+while the app is running.

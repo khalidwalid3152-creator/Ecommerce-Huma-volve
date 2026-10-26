@@ -36,6 +36,18 @@ class _PagedHomeRepository implements HomeRepository {
   final List<(int, int)> requests = [];
 
   @override
+  Future<HomeProduct> loadProduct(String id) async {
+    return HomeProduct(
+      id: id,
+      name: 'Product $id',
+      description: '',
+      price: 10,
+      imageUrl: '',
+      categorySlug: 'test',
+    );
+  }
+
+  @override
   Future<HomeData> loadHome({required int skip, required int limit}) async {
     requests.add((skip, limit));
     final count = skip == 0 ? limit : 1;

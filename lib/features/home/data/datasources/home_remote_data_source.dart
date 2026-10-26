@@ -10,6 +10,16 @@ class HomeRemoteDataSource {
 
   final Dio _dio;
 
+  Future<HomeProduct> loadProduct(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>('/products/$id');
+    final productData = response.data;
+    if (productData == null) {
+      throw const FormatException('The product service returned invalid data.');
+    }
+
+    return _productFromJson(productData);
+  }
+
   Future<HomeData> loadHome({required int skip, required int limit}) async {
     final productResponse = await _dio.get<Map<String, dynamic>>(
       '/products',
